@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mandelbrot Set</title>
+</head>
+<body>
+  <canvas id="canvas" width="600" height="400"></canvas>
+  <script>
+ const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const width = canvas.width;
+const height = canvas.height;
+
+let minReal = -2.0;
+let maxReal = 1.0;
+let minImag = -1.0;
+let maxImag = 1.0;
+
+const maxIter = 2048;
+
+canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  const delta = event.deltaY;
+  const zoom = 1 + delta / 1000;
+  const mouseX = event.clientX - canvas.offsetLeft;
+  const mouseY = event.clientY - canvas.offsetTop;
+  const centerX = minReal + mouseX * (maxReal - minReal) / width;
+  const centerY = minImag + mouseY * (maxImag - minImag) / height;
+  minReal = centerX + (minReal - centerX) / zoom;
+  maxReal = centerX + (maxReal - centerX) / zoom;
+  minImag = centerY + (minImag - centerY) / zoom;
+  maxImag = centerY + (maxImag - centerY) / zoom;
+  draw();
+});
+
+function draw() {
+  const workers = [];
+  for (let i = 0; i < 4; i++) {
+    workers.push(new Worker('worker.js'));
+  }
+  const chunkSize = Math.ceil(height / workers.length);
+  for (let i = 0; i < workers.length; i++) {
+    const worker = workers[i];
+    const y0 = i * chunkSize;
+    const y1 = Math.min(y0 + chunkSize, height);
+    worker.postMessage({ minReal, maxReal, minImag, maxImag, width, height, maxIter, y0, y1 });
+    worker.onmessage = (event) => {
+      ctx.putImageData(event.data, 0, y0);
+      worker.terminate();
+    };
+  }
+}
+
+draw();
+
+
+  </script>
+</body>
+</html>
